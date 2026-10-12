@@ -1,0 +1,12 @@
+{
+  "_说明": [
+    "这个文件是可选的，不填也能正常用。",
+    "biliCookie: 想让B站声音用更高清晰度(蓝光/原画)时，填你自己的登录 Cookie。",
+    "           浏览器登录B站后按 F12 -> Application -> Cookies -> 复制 SESSDATA 的值即可，",
+    "           形如 biliCookie: \"SESSDATA=xxxxxxxx;\"。注意这等同于你的登录凭证，别外传。",
+    "potplayerPath / vlcPath: 自动探测不到播放器时，在这里写完整路径。"
+  ],
+  "biliCookie": "",
+  "potplayerPath": "",
+  "vlcPath": ""
+}

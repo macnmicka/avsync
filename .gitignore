@@ -1,0 +1,10 @@
+# 运行时产生的日志（start.ps1 会写 run.log / run.err）
+run.log
+run.err
+server.out.log
+server.err.log
+*.log
+*.err
+
+# 本机私有配置（可能含 B站 Cookie），不要提交
+config.json

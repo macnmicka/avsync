@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>avsync · 央视频画面 + B站声音</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>avsync</h1>
+  <div class="sub">央视频看画面 · B站听声音 · 延迟随便调</div>
+  <div class="clock" id="clock">--:--:--</div>
+</header>
+
+<main>
+  <!-- 左：央视频 -->
+  <section class="pane pane-video">
+    <div class="pane-head">
+      <span class="badge badge-video">画面</span>
+      <input id="sourceInput" placeholder="粘贴央视/央视频链接，或输入 CCTV5+ / cctv5p" autocomplete="off">
+      <button id="btnLoadVideo" class="primary">加载</button>
+    </div>
+    <div class="pane-head pane-head-sub">
+      <select id="channelSelect"></select>
+      <input id="channelFilter" placeholder="筛选频道…" autocomplete="off">
+    </div>
+    <div class="stage" id="videoStage">
+      <video id="videoEl" playsinline muted></video>
+      <div class="stage-overlay" id="videoOverlay">选一个频道，点“加载”</div>
+      <button id="btnFull" class="fs-btn" title="全屏（快捷键 F，或双击画面）">⛶ 全屏</button>
+    </div>
+    <div class="meter">
+      <span class="dot" id="videoDot"></span>
+      <span id="videoState">未连接</span>
+      <span class="sep">·</span>
+      <span id="videoLat">视频滞后 —</span>
+      <span class="sep">·</span>
+      <span id="videoRes"></span>
+    </div>
+  </section>
+
+  <!-- 中：控制台 -->
+  <section class="pane pane-sync">
+    <h2>同步</h2>
+
+    <div class="offset-box">
+      <div class="offset-value"><span id="offsetNum">0</span><span class="unit">秒</span></div>
+      <div class="offset-hint" id="offsetHint">手动画面延迟：比最新直播再延后多少秒</div>
+      <input type="range" id="offset" min="0" max="300" step="1" value="0">
+      <div class="offset-scale"><span>0</span><span>60</span><span>120</span><span>180</span><span>240</span><span>300</span></div>
+      <div class="cap" id="videoCap"></div>
+    </div>
+
+    <div class="audio-delay-box">
+      <label class="inline">
+        <span>手动声音延迟</span>
+        <input type="range" id="audioDelay" min="0" max="15" step="1" value="0">
+        <b id="audioDelayNum">0</b><span class="unit">秒</span>
+      </label>
+      <div class="cap" id="audioCap"></div>
+    </div>
+
+    <div class="reading">
+      <div><span class="k">画面滞后</span><span class="v" id="mVideo">—</span></div>
+      <div><span class="k">声音滞后</span><span class="v" id="mAudio">—</span></div>
+      <div><span class="k">差值（声 − 画）</span><span class="v" id="mDiff">—</span></div>
+    </div>
+
+    <button id="btnAlign" class="primary wide">⚡ 一键对齐（自动算延迟）</button>
+    <button id="btnAuto" class="wide">🔁 自动实时对齐：关</button>
+    <div class="auto-info" id="autoInfo">自动调整：未开启</div>
+    <div class="auto-readout">
+      <label for="autoVideoDelay">自动结果（画面）</label>
+      <input type="range" id="autoVideoDelay" min="0" max="300" step="1" value="0" aria-readonly="true" tabindex="-1">
+      <span><b id="autoVideoDelayNum">0</b> 秒</span>
+      <small>只显示自动对齐结果；手动拖动不会改动自动结果条</small>
+    </div>
+    <div class="auto-readout audio-auto-readout">
+      <label for="autoAudioDelay">自动结果（声音）</label>
+      <input type="range" id="autoAudioDelay" min="0" max="300" step="1" value="0" aria-readonly="true" tabindex="-1">
+      <span><b id="autoAudioDelayNum">0</b> 秒</span>
+      <small>这里只显示自动计算结果，不限制显示范围；实际声音下发仍受 B 站分片有效期约 15 秒限制</small>
+    </div>
+
+    <div class="row">
+      <button id="btnPlay">▶ 播放</button>
+      <button id="btnMute">🔈 声音开</button>
+      <button id="btnZero">延迟归零</button>
+    </div>
+
+    <details class="tips">
+      <summary>怎么用 / 快捷键 / 那些数字是什么意思</summary>
+      <ul>
+        <li><b>主控制是「画面延迟」</b>：B站 的声音本身就比现实慢几十秒（它页面上标的"延时 40s"就是这个），
+            这是<b>改不了</b>的；我们能做的是把央视频的画面也<b>往后延</b>去追上它（画面可延后 0~280 秒）。</li>
+        <li>「声音延迟」只是备用：只有当画面已经贴到最新、声音还是更慢时才需要它（上限约 15 秒，B站 平台限制）。</li>
+        <li><b>先看「差值（声 − 画）」</b>：<span class="mono">+</span> 表示画面比声音更慢（把画面延迟调小）；
+            <span class="mono">−</span> 表示画面更快（把画面延迟调大）。调成 0 就对齐了。</li>
+        <li>懒人办法：点 <b>一键对齐</b> 配一次；再打开 <b>自动实时对齐</b>，它会持续监视差值并自动微调
+            （差一点点就用播放速率平滑纠偏，差得多才重载一次）。</li>
+        <li>延迟在<b>服务端</b>做（改下发的分片窗口），所以调好不会像变速那样漂。</li>
+        <li>快捷键：<span class="mono">空格</span> 播放/暂停 ·
+            <span class="mono">F</span> 全屏 ·
+            <span class="mono">←/→</span> 画面延迟 ±1s（Shift ±5s）·
+            <span class="mono">↑/↓</span> 声音延迟 ·
+            <span class="mono">A</span> 一键对齐 ·
+            <span class="mono">R</span> 自动实时对齐开关 ·
+            <span class="mono">0</span> 归零</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- 右：B站 -->
+  <section class="pane pane-audio">
+    <div class="pane-head">
+      <span class="badge badge-audio">声音</span>
+      <input id="roomInput" placeholder="粘贴 B站直播间链接，或输入房间号" autocomplete="off">
+      <button id="btnLoadAudio" class="primary">加载</button>
+    </div>
+    <div class="row row-tight">
+      <input id="searchInput" placeholder="按关键词搜直播间…">
+      <button id="btnSearch">搜索</button>
+    </div>
+    <div id="searchResults" class="results"></div>
+    <div class="stage stage-small">
+      <video id="audioEl" playsinline></video>
+      <canvas id="vu" class="vu" width="240" height="48"></canvas>
+      <div class="stage-overlay" id="audioOverlay">填入直播间号，点“加载”</div>
+    </div>
+    <div class="meter">
+      <span class="dot" id="audioDot"></span>
+      <span id="audioState">未连接</span>
+      <span class="sep">·</span>
+      <span id="audioLat">声音滞后 —</span>
+    </div>
+    <div class="audio-ctl">
+      <label>音量 <input type="range" id="volume" min="0" max="100" value="100"></label>
+      <div class="row row-tight">
+        <button id="btnBiliShow">显示B站画面</button>
+        <button id="btnOpenPP">用 PotPlayer 打开画面</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>全部流量经本机代理同源转发（<span class="mono">127.0.0.1</span>），不经过任何第三方服务器。</span>
+  <span id="cfgInfo"></span>
+</footer>
+
+<script src="/vendor/hls.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
